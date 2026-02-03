@@ -1,255 +1,161 @@
-GESTION DE FICHIERS EN C — WINDOWS UNIQUEMENT (TXT)
-
-============================================================ PARTIE 1 — EXEMPLES SIMPLES (WINDOWS)
-
-CREER UN FICHIER (STANDARD C)
-
-FILE *f = fopen("file.txt", "w"); if (f) { fputs("Hello Windows", f); fclose(f); }
-
-RENOMMER / DEPLACER
-
-rename("file.txt", "file2.txt");
-
-SUPPRIMER
-
-remove("file2.txt");
-
-============================================================ PARTIE 2 — STANDARD C (COMPATIBLE WINDOWS)
-
-INCLUDES
-
-#include <stdio.h>    -> fopen, fclose, rename, remove #include <stdlib.h>  -> EXIT_SUCCESS, EXIT_FAILURE #include <errno.h>   -> errno #include <string.h>  -> strerror
-
-FONCTIONS
-
-fopen(path, "r")   -> lecture fopen(path, "w")   -> création / écrasement fopen(path, "a")   -> ajout fopen(path, "rb")  -> lecture binaire fopen(path, "wb")  -> écriture binaire fclose(f)           -> fermeture fprintf(f, ...)     -> écriture formatée fputs(str, f)       -> écriture simple fputc(c, f)         -> écrire 1 caractère fgets(buf, n, f)    -> lire ligne fgetc(f)            -> lire caractère fread(buf,s,c,f)    -> lecture binaire fwrite(buf,s,c,f)   -> écriture binaire rename(old,new)     -> renommer / déplacer remove(path)        -> supprimer fichier
-
-============================================================ PARTIE 3 — WINDOWS API NATIF (AVANCE)
-
-INCLUDE
-
-#include <windows.h>
-
-CREATION / OUVERTURE BAS NIVEAU
-
-HANDLE hFile = CreateFileA( "file.txt", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL );
-
--> crée ou ouvre un fichier Windows
-
-ECRITURE
-
-DWORD written; WriteFile(hFile, buffer, size, &written, NULL);
-
-LECTURE
-
-DWORD read; ReadFile(hFile, buffer, size, &read, NULL);
-
-DEPLACER / RENOMMER
-
-MoveFileA("file.txt", "file2.txt"); MoveFileExA("file.txt", "file2.txt", MOVEFILE_REPLACE_EXISTING);
-
-SUPPRIMER
-
-DeleteFileA("file2.txt");
-
-FERMER
-
-CloseHandle(hFile);
-
-============================================================ PARTIE 4 — ATTRIBUTS & INFORMATIONS FICHIER
-
-GetFileAttributesA("file.txt"); -> récupère attributs
-
-SetFileAttributesA("file.txt", FILE_ATTRIBUTE_HIDDEN); -> rend fichier caché
-
-GetFileSize(hFile, NULL); -> taille du fichier
-
-============================================================ PARTIE 5 — CONSTANTES WINDOWS IMPORTANTES
-
-GENERIC_READ GENERIC_WRITE FILE_SHARE_READ FILE_SHARE_WRITE CREATE_ALWAYS CREATE_NEW OPEN_EXISTING OPEN_ALWAYS TRUNCATE_EXISTING FILE_ATTRIBUTE_NORMAL FILE_ATTRIBUTE_HIDDEN FILE_ATTRIBUTE_READONLY MOVEFILE_REPLACE_EXISTING
-
-============================================================ PARTIE 6 — GESTION DES ERREURS WINDOWS
-
-GetLastError(); -> code erreur Windows
-
-FormatMessageA(...); -> message d'erreur lisible
-
-============================================================ PARTIE 7 — STRUCTURE MINIMALE WINDOWS
-
-int main(void) { return EXIT_SUCCESS; }
-
-============================================================ PARTIE 8 — REGLES IMPORTANTES WINDOWS
-
-Toujours fermer les HANDLE (CloseHandle)
-
-Tester INVALID_HANDLE_VALUE
-
-Windows API = non portable
-
-Utiliser CreateFileA ou CreateFileW (Unicode)
-
-Les chemins acceptent \ ou /
-
-
-============================================================
-
-PARTIE 9 — RECHERCHE DE FICHIERS (WINDOWS)
-
-RECHERCHE SIMPLE PAR NOM / EXTENSION
-
-WIN32_FIND_DATAA findData; HANDLE hFind = FindFirstFileA("C:/test/*.txt", &findData);
-
-if (hFind != INVALID_HANDLE_VALUE) { do { // findData.cFileName -> nom du fichier } while (FindNextFileA(hFind, &findData));
-
-FindClose(hFind);
-
-}
-
--> recherche tous les .txt dans un dossier
-
-
----
-
-RECHERCHE AVEC SOUS-DOSSIERS (RECURSIVE)
-
-void search(const char *path) { char fullPath[MAX_PATH]; WIN32_FIND_DATAA fd;
-
-sprintf(fullPath, "%s\*", path);
-HANDLE h = FindFirstFileA(fullPath, &fd);
-
-if (h == INVALID_HANDLE_VALUE) return;
-
-do {
-    if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0)
-        continue;
-
-    sprintf(fullPath, "%s\%s", path, fd.cFileName);
-
-    if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-        search(fullPath);
-    else {
-        // fichier trouvé
-    }
-} while (FindNextFileA(h, &fd));
-
-FindClose(h);
-
-}
-
--> parcours récursif complet
-
-============================================================ PARTIE 10 — FILTRAGE AVANCE
-
-PAR TAILLE
-
-if (findData.nFileSizeLow > 1024) -> fichier > 1 Ko
-
-PAR ATTRIBUT
-
-if (findData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) -> fichier caché
-
-PAR DATE
-
-FILETIME ft = findData.ftLastWriteTime; -> date de modification
-
-============================================================ PARTIE 11 — CHEMINS LONGS & UNICODE
-
-PREFIXE CHEMIN LONG
-
-?\C:\chemin\tres\long\fichier.txt
-
-UNICODE (RECOMMANDE)
-
-CreateFileW(L"file.txt", ...); FindFirstFileW(L"*.txt", &findDataW);
-
-============================================================ PARTIE 12 — DOSSIERS WINDOWS
-
-CREER DOSSIER
-
-CreateDirectoryA("dir", NULL);
-
-SUPPRIMER DOSSIER
-
-RemoveDirectoryA("dir");
-
-============================================================ PARTIE 13 — VERROUILLAGE DE FICHIER
-
-LockFileEx(hFile, LOCKFILE_EXCLUSIVE_LOCK, 0, MAXDWORD, MAXDWORD, &ov); -> verrou exclusif
-
-UnlockFileEx(hFile, 0, MAXDWORD, MAXDWORD, &ov); -> déverrouille
-
-============================================================ PARTIE 14 — REGLES AVANCEES WINDOWS
-
-Toujours fermer FindClose
-
-Tester INVALID_HANDLE_VALUE
-
-Utiliser Unicode pour projets sérieux
-
-Attention aux MAX_PATH
-
-
-============================================================
-
-PARTIE 15 — SURVEILLANCE DE DOSSIERS (FILE WATCHER)
-
-SURVEILLER LES CHANGEMENTS
-
-HANDLE hDir = CreateFileA( "C:/test", FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL );
-
-ReadDirectoryChangesW( hDir, buffer, sizeof(buffer), TRUE, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE, &bytesReturned, NULL, NULL );
-
--> détecte création, suppression, modification
-
-============================================================ PARTIE 16 — I/O ASYNCHRONE (OVERLAPPED)
-
-OVERLAPPED ov = {0}; ov.Offset = 0;
-
-ReadFile(hFile, buffer, size, NULL, &ov);
-
-GetOverlappedResult(hFile, &ov, &bytesRead, TRUE);
-
--> lecture non bloquante
-
-============================================================ PARTIE 17 — PERMISSIONS & SECURITE (ACL)
-
-GetFileSecurityA(path, DACL_SECURITY_INFORMATION, ...); SetFileSecurityA(path, DACL_SECURITY_INFORMATION, ...);
-
--> gestion fine des droits NTFS
-
-============================================================ PARTIE 18 — INFORMATIONS AVANCEES NTFS
-
-GetFileInformationByHandle(hFile, &info);
-
--> index NTFS, liens, dates précises
-
-============================================================ PARTIE 19 — LIENS SYMBOLIQUES & DURS
-
-CreateSymbolicLinkA("link.txt", "file.txt", 0); CreateHardLinkA("hard.txt", "file.txt", NULL);
-
-============================================================ PARTIE 20 — COPIE ATOMIQUE / SECURISEE
-
-CopyFileA("a.txt", "b.txt", FALSE); CopyFileExA("a.txt", "b.txt", NULL, NULL, NULL, COPY_FILE_RESTARTABLE);
-
--> copie contrôlée
-
-============================================================ PARTIE 21 — SUPPRESSION DEFINITIVE / CORBEILLE
-
-DeleteFileA("file.txt");
-
-SHFileOperationA(...); -> passage par la corbeille
-
-============================================================ PARTIE 22 — BONNES PRATIQUES WINDOWS PRO
-
-Toujours préférer les versions W (Unicode)
-
-Gérer MAX_PATH ou utiliser \?\
-
-Centraliser gestion erreurs GetLastError
-
-Ne jamais oublier CloseHandle / FindClose
-
-Séparer stdio et WinAPI
-
-
-============================================================ FIN DEFINITIVE — WINDOWS FILE API COMPLET
+# Langage C – Commandes et fonctions détaillées
+
+## 1. **Directives du préprocesseur**
+
+| Directive  | Description                                                                  |
+| ---------- | ---------------------------------------------------------------------------- |
+| `#include` | Inclut un fichier d’en-tête, ex. `<stdio.h>` pour fonctions d’entrée/sortie. |
+| `#define`  | Définit une macro ou constante symbolique, ex. `#define PI 3.14`.            |
+| `#undef`   | Supprime une macro définie précédemment.                                     |
+| `#ifdef`   | Vérifie si une macro est définie.                                            |
+| `#ifndef`  | Vérifie si une macro n’est pas définie.                                      |
+| `#if`      | Condition compilée selon l’expression.                                       |
+| `#elif`    | "else if" pour préprocesseur.                                                |
+| `#else`    | Bloc alternatif pour `#if`.                                                  |
+| `#endif`   | Termine un bloc conditionnel de préprocesseur.                               |
+| `#error`   | Génère un message d’erreur de compilation.                                   |
+| `#pragma`  | Directive spécifique au compilateur (ex. `#pragma once`).                    |
+
+## 2. **Types de données**
+
+| Type          | Description                                    |
+| ------------- | ---------------------------------------------- |
+| `int`         | Entier (32 bits typique).                      |
+| `short`       | Entier court (16 bits typique).                |
+| `long`        | Entier long (32 ou 64 bits).                   |
+| `long long`   | Entier très long (64 bits).                    |
+| `unsigned`    | Entier sans signe.                             |
+| `float`       | Virgule flottante simple précision.            |
+| `double`      | Virgule flottante double précision.            |
+| `long double` | Virgule flottante extended précision.          |
+| `char`        | Caractère.                                     |
+| `_Bool`       | Booléen (0 ou 1).                              |
+| `void`        | Type vide, utilisé pour fonctions sans retour. |
+
+## 3. **Structures de contrôle**
+
+| Instruction | Description                               |
+| ----------- | ----------------------------------------- |
+| `if`        | Exécute un bloc si condition vraie.       |
+| `else`      | Bloc si `if` est faux.                    |
+| `else if`   | Chaîne conditionnelle.                    |
+| `switch`    | Sélection parmi plusieurs cas.            |
+| `case`      | Cas individuel dans un switch.            |
+| `default`   | Bloc si aucun case ne correspond.         |
+| `for`       | Boucle avec init, condition et incrément. |
+| `while`     | Boucle tant que condition vraie.          |
+| `do…while`  | Boucle exécutée au moins une fois.        |
+| `break`     | Sortie immédiate de boucle ou switch.     |
+| `continue`  | Passe à l’itération suivante.             |
+| `goto`      | Saute à un label dans le code.            |
+
+## 4. **Opérateurs**
+
+| Catégorie           | Opérateurs                        | Description                                               |                      |              |
+| ------------------- | --------------------------------- | --------------------------------------------------------- | -------------------- | ------------ |
+| Arithmétique        | `+`, `-`, `*`, `/`, `%`           | Addition, soustraction, multiplication, division, modulo. |                      |              |
+| Assignation         | `=`, `+=`, `-=`, `*=`, `/=`, `%=` | Assigne ou modifie la variable.                           |                      |              |
+| Comparaison         | `==`, `!=`, `<`, `>`, `<=`, `>=`  | Comparaisons.                                             |                      |              |
+| Logique             | `&&`, `                           |                                                           | `, `!`               | ET, OU, NON. |
+| Bit à bit           | `&`, `                            | `, `^`, `~`, `<<`, `>>`                                   | Opérations binaires. |              |
+| Incrémentation      | `++`, `--`                        | Ajoute ou retire 1.                                       |                      |              |
+| Conditionnel        | `?:`                              | Ternaire : `condition ? vrai : faux`.                     |                      |              |
+| Adresse et pointeur | `*`, `&`                          | Déférencement et adresse.                                 |                      |              |
+| Taille              | `sizeof()`                        | Taille mémoire d’un type ou variable.                     |                      |              |
+| Virgule             | `,`                               | Sépare expressions évaluées séquentiellement.             |                      |              |
+
+## 5. **Fonctions standard importantes**
+
+### 5.1. **Entrée/Sortie (`<stdio.h>`)**
+
+| Fonction    | Description                                |
+| ----------- | ------------------------------------------ |
+| `printf()`  | Affiche formaté à l’écran.                 |
+| `scanf()`   | Lit formaté depuis l’utilisateur.          |
+| `puts()`    | Affiche une chaîne avec retour à la ligne. |
+| `gets()`    | Lit une ligne (dangereux, non sécurisé).   |
+| `fgets()`   | Lit une ligne en sécurité.                 |
+| `putchar()` | Affiche un caractère.                      |
+| `getchar()` | Lit un caractère.                          |
+| `sprintf()` | Écrit dans un buffer formaté.              |
+| `sscanf()`  | Lit depuis un buffer formaté.              |
+
+### 5.2. **Gestion de mémoire (`<stdlib.h>`)**
+
+| Fonction             | Description                    |
+| -------------------- | ------------------------------ |
+| `malloc(size)`       | Alloue mémoire brute.          |
+| `calloc(n, size)`    | Alloue et initialise à 0.      |
+| `realloc(ptr, size)` | Redimensionne un bloc mémoire. |
+| `free(ptr)`          | Libère un bloc mémoire.        |
+| `exit(code)`         | Termine le programme.          |
+| `system(cmd)`        | Exécute commande système.      |
+
+### 5.3. **Mathématiques (`<math.h>`)**
+
+| Fonction                        | Description                  |
+| ------------------------------- | ---------------------------- |
+| `sqrt(x)`                       | Racine carrée.               |
+| `pow(x, y)`                     | x à la puissance y.          |
+| `sin(x)`, `cos(x)`, `tan(x)`    | Fonctions trigonométriques.  |
+| `asin(x)`, `acos(x)`, `atan(x)` | Fonctions trig inverse.      |
+| `exp(x)`                        | e^x                          |
+| `log(x)`                        | logarithme naturel.          |
+| `log10(x)`                      | logarithme base 10.          |
+| `fabs(x)`                       | valeur absolue flottante.    |
+| `ceil(x)`                       | arrondi supérieur.           |
+| `floor(x)`                      | arrondi inférieur.           |
+| `fmod(x,y)`                     | reste de division flottante. |
+
+### 5.4. **Manipulation de chaînes (`<string.h>`)**
+
+| Fonction                | Description                |
+| ----------------------- | -------------------------- |
+| `strlen(s)`             | Longueur d’une chaîne.     |
+| `strcpy(dest, src)`     | Copie chaîne.              |
+| `strncpy(dest, src, n)` | Copie n caractères.        |
+| `strcat(dest, src)`     | Concatène chaînes.         |
+| `strncat(dest, src, n)` | Concatène n caractères.    |
+| `strcmp(s1, s2)`        | Compare chaînes.           |
+| `strncmp(s1, s2, n)`    | Compare n caractères.      |
+| `strchr(s, c)`          | Cherche caractère.         |
+| `strrchr(s, c)`         | Cherche dernier caractère. |
+| `strstr(s, sub)`        | Cherche sous-chaîne.       |
+| `strtok(s, delim)`      | Sépare chaîne en tokens.   |
+
+### 5.5. **Conversion de type (`<stdlib.h>`)**
+
+| Fonction                   | Description                         |
+| -------------------------- | ----------------------------------- |
+| `atoi(s)`                  | Convertit chaîne en int.            |
+| `atof(s)`                  | Convertit chaîne en float.          |
+| `atol(s)`                  | Convertit chaîne en long.           |
+| `strtol(s, &endptr, base)` | Convertit chaîne en long avec base. |
+| `strtod(s, &endptr)`       | Convertit chaîne en double.         |
+
+## 6. **Structures de données**
+
+| Structure | Description                                    |
+| --------- | ---------------------------------------------- |
+| `struct`  | Regroupe variables de types différents.        |
+| `union`   | Regroupe variables partageant la même mémoire. |
+| `enum`    | Définir des constantes symboliques.            |
+| `typedef` | Crée un alias pour un type existant.           |
+| `array`   | Tableau de variables du même type.             |
+| `pointer` | Adresse mémoire d’une variable.                |
+
+## 7. **Manipulation de fichiers (`<stdio.h>`)**
+
+| Fonction                      | Description                       |
+| ----------------------------- | --------------------------------- |
+| `fopen(name, mode)`           | Ouvre un fichier (`r`, `w`, `a`). |
+| `fclose(fp)`                  | Ferme un fichier.                 |
+| `fread(buffer, size, n, fp)`  | Lit un bloc depuis fichier.       |
+| `fwrite(buffer, size, n, fp)` | Écrit un bloc dans fichier.       |
+| `fprintf(fp, …)`              | Écrit formaté dans fichier.       |
+| `fscanf(fp, …)`               | Lit formaté depuis fichier.       |
+| `fseek(fp, offset, origin)`   | Déplace curseur.                  |
+| `ftell(fp)`                   | Position actuelle dans fichier.   |
+| `rewind(fp)`                  | Curseur au début.                 |
+| `remove(name)`                | Supprime fichier.                 |
+| `rename(old, new)`            | Renomme fichier.                  |
